@@ -1,0 +1,11 @@
+{
+  "siteTitle": "My Skills",
+  "siteSubtitle": "打开、搜索、一键复制。内容来自 skills/*.md。",
+  "categoryOrder": [
+    "论文 / 学术",
+    "通用回答",
+    "推理 / 分析",
+    "写作 / 改写",
+    "工具 / 工作流"
+  ]
+}
