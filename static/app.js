@@ -2,41 +2,55 @@
   const data = window.SKILL_SHELF_DATA || { config: {}, skills: [] };
   const config = data.config || {};
   const skills = Array.isArray(data.skills) ? data.skills : [];
-  const order = Array.isArray(config.categoryOrder) ? config.categoryOrder : [];
 
   const $ = (selector) => document.querySelector(selector);
   const root = $('#skills-root');
-  const filters = $('#filters');
   const search = $('#search');
-  const status = $('#status');
   const empty = $('#empty-state');
   const template = $('#card-template');
   const dialog = $('#skill-dialog');
 
-  let activeCategory = '全部';
   let activeSkill = null;
 
+  const FAV_KEY = 'skill-shelf-favs';
+  let favs;
+  try { favs = new Set(JSON.parse(localStorage.getItem(FAV_KEY) || '[]')); } catch { favs = new Set(); }
+
+  function toggleFav(slug) {
+    if (favs.has(slug)) favs.delete(slug); else favs.add(slug);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify([...favs])); } catch { /* 存储不可用时忽略 */ }
+    render();
+  }
+
+  function highlightText(text, query) {
+    if (!query) return [document.createTextNode(String(text || ''))];
+    const source = String(text || '');
+    const lower = source.toLocaleLowerCase('zh-CN');
+    const needle = query.toLocaleLowerCase('zh-CN');
+    const nodes = [];
+    let i = 0;
+    while (true) {
+      const hit = lower.indexOf(needle, i);
+      if (hit === -1) {
+        nodes.push(document.createTextNode(source.slice(i)));
+        break;
+      }
+      if (hit > i) nodes.push(document.createTextNode(source.slice(i, hit)));
+      const mark = document.createElement('mark');
+      mark.textContent = source.slice(hit, hit + query.length);
+      nodes.push(mark);
+      i = hit + query.length;
+    }
+    return nodes;
+  }
+
   document.title = config.siteTitle || 'My Skills';
-  $('#site-title').textContent = config.siteTitle || 'My Skills';
-  $('#hero-title').textContent = config.siteTitle || 'My Skills';
-  $('#site-subtitle').textContent = config.siteSubtitle || '打开、搜索、一键复制。';
-
-  function categoryRank(name) {
-    const i = order.indexOf(name);
-    return i === -1 ? 999 : i;
-  }
-
-  function categories() {
-    return [...new Set(skills.map((s) => s.category || '其他'))]
-      .sort((a, b) => categoryRank(a) - categoryRank(b) || a.localeCompare(b, 'zh-CN'));
-  }
 
   function normalize(text) {
     return String(text || '').toLocaleLowerCase('zh-CN');
   }
 
   function matches(skill, query) {
-    if (activeCategory !== '全部' && skill.category !== activeCategory) return false;
     if (!query) return true;
     const haystack = [skill.title, skill.description, skill.category, ...(skill.tags || []), skill.content]
       .map(normalize).join('\n');
@@ -75,10 +89,11 @@
 
   function openSkill(skill, pushHash = true) {
     activeSkill = skill;
+    dialog.dataset.category = skill.category || '其他';
     $('#dialog-category').textContent = skill.category || '其他';
-    $('#dialog-title').textContent = skill.title;
-    $('#dialog-description').textContent = skill.description || '';
-    $('#dialog-content').textContent = skill.content || '';
+    const query = search.value.trim();
+    $('#dialog-title').replaceChildren(...highlightText(skill.title || '', query));
+    $('#dialog-content').replaceChildren(...highlightText(skill.content || '', query));
     const tags = $('#dialog-tags');
     tags.replaceChildren(...(skill.tags || []).map(makeTag));
     if (!dialog.open) dialog.showModal();
@@ -95,12 +110,23 @@
     const node = template.content.cloneNode(true);
     const card = node.querySelector('.skill-card');
     card.dataset.slug = skill.slug;
-    node.querySelector('.category-pill').textContent = skill.category || '其他';
-    node.querySelector('.card-title').textContent = skill.title;
-    node.querySelector('.card-description').textContent = skill.description || '';
-    node.querySelector('.card-preview').textContent = skill.content || '';
-    const tags = node.querySelector('.card-tags');
-    tags.replaceChildren(...(skill.tags || []).slice(0, 3).map(makeTag));
+    card.dataset.category = skill.category || '其他';
+    const query = search.value.trim();
+
+    const title = node.querySelector('.card-title');
+    title.replaceChildren(...highlightText(skill.title || '', query));
+    const preview = node.querySelector('.card-preview');
+    preview.replaceChildren(...highlightText(skill.content || '', query));
+
+    const fav = node.querySelector('.fav-button');
+    const isFav = favs.has(skill.slug);
+    fav.classList.toggle('active', isFav);
+    fav.textContent = isFav ? '★' : '☆';
+    fav.setAttribute('aria-label', isFav ? '取消收藏' : '收藏');
+    fav.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleFav(skill.slug);
+    });
 
     const copy = node.querySelector('.copy-button');
     copy.addEventListener('click', (e) => {
@@ -108,61 +134,39 @@
       copyText(skill.content || '', copy);
     });
     node.querySelector('.card-open').addEventListener('click', () => openSkill(skill));
-    node.querySelector('.view-button').addEventListener('click', () => openSkill(skill));
     return node;
-  }
-
-  function renderFilters() {
-    const all = ['全部', ...categories()];
-    filters.replaceChildren(...all.map((category) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'filter-button' + (category === activeCategory ? ' active' : '');
-      btn.textContent = category;
-      btn.addEventListener('click', () => {
-        activeCategory = category;
-        renderFilters();
-        render();
-      });
-      return btn;
-    }));
   }
 
   function render() {
     const query = search.value.trim();
-    const visible = skills.filter((skill) => matches(skill, query));
-    status.textContent = `共 ${visible.length} 个 Skill${query ? ` · 搜索“${query}”` : ''}`;
+    const ranked = [...skills].sort(
+      (a, b) => (favs.has(a.slug) ? 0 : 1) - (favs.has(b.slug) ? 0 : 1)
+    );
+    const visible = ranked.filter((skill) => matches(skill, query));
     root.replaceChildren();
     empty.hidden = visible.length !== 0;
     if (!visible.length) return;
 
-    const grouped = new Map();
-    visible.forEach((skill) => {
-      const cat = skill.category || '其他';
-      if (!grouped.has(cat)) grouped.set(cat, []);
-      grouped.get(cat).push(skill);
-    });
-
-    [...grouped.entries()]
-      .sort(([a], [b]) => categoryRank(a) - categoryRank(b) || a.localeCompare(b, 'zh-CN'))
-      .forEach(([category, items]) => {
-        const section = document.createElement('section');
-        section.className = 'category-section';
-        section.id = 'category-' + category;
-        const head = document.createElement('div');
-        head.className = 'category-header';
-        const title = document.createElement('h2');
-        title.textContent = category;
-        const count = document.createElement('span');
-        count.className = 'category-count';
-        count.textContent = `${items.length} 项`;
-        head.append(title, count);
-        const grid = document.createElement('div');
-        grid.className = 'card-grid';
-        items.forEach((skill) => grid.appendChild(createCard(skill)));
-        section.append(head, grid);
-        root.appendChild(section);
-      });
+    const favSkills = visible.filter((s) => favs.has(s.slug));
+    const otherSkills = visible.filter((s) => !favs.has(s.slug));
+    const split = favSkills.length > 0 && otherSkills.length > 0;
+    document.body.classList.toggle('layout-with-favs', split);
+    if (split) {
+      root.className = '';
+      const layout = document.createElement('div');
+      layout.className = 'skills-layout';
+      const favGrid = document.createElement('div');
+      favGrid.className = 'card-grid fav-column';
+      favSkills.forEach((s) => favGrid.appendChild(createCard(s)));
+      const otherGrid = document.createElement('div');
+      otherGrid.className = 'card-grid';
+      otherSkills.forEach((s) => otherGrid.appendChild(createCard(s)));
+      layout.append(favGrid, otherGrid);
+      root.appendChild(layout);
+    } else {
+      root.className = 'card-grid';
+      visible.forEach((skill) => root.appendChild(createCard(skill)));
+    }
   }
 
   search.addEventListener('input', render);
@@ -176,8 +180,6 @@
 
   $('#dialog-close').addEventListener('click', closeDialog);
   dialog.addEventListener('click', (e) => { if (e.target === dialog) closeDialog(); });
-  $('#dialog-copy').addEventListener('click', (e) => activeSkill && copyText(activeSkill.content || '', e.currentTarget));
-  $('#dialog-link').addEventListener('click', (e) => activeSkill && copyText(location.href, e.currentTarget, '链接已复制'));
 
   const themeToggle = $('#theme-toggle');
   const savedTheme = localStorage.getItem('skill-shelf-theme');
@@ -189,7 +191,6 @@
     localStorage.setItem('skill-shelf-theme', next);
   });
 
-  renderFilters();
   render();
 
   if (location.hash) {

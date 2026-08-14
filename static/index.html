@@ -8,39 +8,27 @@
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <header class="topbar">
-    <div class="shell topbar-inner">
-      <a class="brand" href="./" aria-label="My Skills 首页">
-        <span class="brand-mark">S</span>
-        <span id="site-title">My Skills</span>
-      </a>
-      <button class="icon-button" id="theme-toggle" type="button" aria-label="切换深色模式" title="切换深色模式">◐</button>
-    </div>
-  </header>
+  <button class="theme-toggle" id="theme-toggle" type="button" aria-label="切换深色模式" title="切换深色模式">◐</button>
 
-  <main class="shell">
-    <section class="hero">
-      <p class="eyebrow">SKILL SHELF</p>
-      <h1 id="hero-title">My Skills</h1>
-      <p id="site-subtitle" class="subtitle">打开、搜索、一键复制。</p>
-
-      <div class="search-wrap">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"/></svg>
-        <input id="search" type="search" placeholder="搜索标题、标签或 Skill 内容…" autocomplete="off" />
-        <kbd>/</kbd>
+  <main>
+    <div class="search-bar">
+      <div class="shell search-inner">
+        <div class="search-wrap">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"/></svg>
+          <input id="search" type="search" placeholder="搜索标题、标签或 Skill 内容…" autocomplete="off" />
+          <kbd>/</kbd>
+        </div>
       </div>
+    </div>
 
-      <nav id="filters" class="filters" aria-label="分类筛选"></nav>
-    </section>
-
-    <div id="status" class="status" aria-live="polite"></div>
-    <div id="skills-root"></div>
-
-    <section id="empty-state" class="empty-state" hidden>
-      <div class="empty-icon">⌕</div>
-      <h2>没找到</h2>
-      <p>换个关键词，或者切回“全部”。</p>
-    </section>
+    <div class="shell">
+      <div id="skills-root"></div>
+      <section id="empty-state" class="empty-state" hidden>
+        <div class="empty-icon">⌕</div>
+        <h2>没找到</h2>
+        <p>换个关键词再试试。</p>
+      </section>
+    </div>
   </main>
 
   <dialog id="skill-dialog" class="skill-dialog">
@@ -52,31 +40,21 @@
         </div>
         <button id="dialog-close" class="icon-button close-button" type="button" aria-label="关闭">×</button>
       </div>
-      <p id="dialog-description" class="dialog-description"></p>
       <div id="dialog-tags" class="tag-row"></div>
       <pre id="dialog-content" class="full-content"></pre>
-      <div class="dialog-actions">
-        <button id="dialog-copy" class="primary-button" type="button">复制 Skill</button>
-        <button id="dialog-link" class="secondary-button" type="button">复制链接</button>
-      </div>
     </div>
   </dialog>
 
   <template id="card-template">
     <article class="skill-card">
-      <div class="card-topline">
-        <span class="category-pill"></span>
+      <div class="card-actions">
+        <button class="fav-button" type="button" aria-label="收藏">☆</button>
         <button class="copy-button" type="button" aria-label="复制 Skill">复制</button>
       </div>
       <button class="card-open" type="button">
         <h3 class="card-title"></h3>
-        <p class="card-description"></p>
         <pre class="card-preview"></pre>
       </button>
-      <div class="card-footer">
-        <div class="tag-row card-tags"></div>
-        <button class="view-button" type="button">查看全文 →</button>
-      </div>
     </article>
   </template>
 
